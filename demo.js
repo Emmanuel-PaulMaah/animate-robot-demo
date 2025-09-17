@@ -12,31 +12,28 @@ async function main() {
 
   // 📦 Setup Three.js scene
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
   camera.position.set(0, 0, 5);
 
-  // Add light
+  // Lights
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
   const light = new THREE.PointLight(0xffffff, 1);
   light.position.set(5, 5, 5);
   scene.add(light);
 
   // Floor grid
   const grid = new THREE.GridHelper(10, 20);
+  grid.position.y = -2;
   scene.add(grid);
 
   // 🟢 Create joints (spheres)
-  const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const jointMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
   const joints = [];
   for (let i = 0; i < 17; i++) {
-    const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.05), jointMaterial);
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.08), jointMaterial);
     scene.add(sphere);
     joints.push(sphere);
   }
@@ -52,10 +49,10 @@ async function main() {
     [5, 11], [6, 12]    // torso
   ];
 
-  // 🟨 Create bones
-  const boneMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+  // 🟨 Create bones (cylinders)
+  const boneMaterial = new THREE.MeshLambertMaterial({ color: 0xffff00 });
   const bones = connections.map(() => {
-    const geometry = new THREE.CylinderGeometry(0.02, 0.02, 1, 8);
+    const geometry = new THREE.CylinderGeometry(0.04, 0.04, 1, 8);
     const bone = new THREE.Mesh(geometry, boneMaterial);
     scene.add(bone);
     return bone;
@@ -67,7 +64,10 @@ async function main() {
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
   );
 
-  // 🎮 Helper to update bones
+  // Store smoothed joint positions
+  const smoothed = Array(17).fill().map(() => new THREE.Vector3());
+
+  // 🎮 Update bone helper
   function updateBone(bone, start, end) {
     const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
     bone.position.copy(mid);
@@ -76,53 +76,44 @@ async function main() {
     const length = direction.length();
     bone.scale.set(1, length, 1);
 
-    const axis = new THREE.Vector3(0, 1, 0);
-    const quaternion = new THREE.Quaternion().setFromUnitVectors(
-      axis.clone().normalize(),
-      direction.clone().normalize()
-    );
-    bone.setRotationFromQuaternion(quaternion);
+    bone.rotation.set(0, 0, 0);
+    bone.lookAt(end);
+    bone.rotateX(Math.PI / 2);
   }
 
-  // 🎮 Animation loop
-  async function animate() {
-    requestAnimationFrame(animate);
-
+  // 📡 Run pose detection at ~30fps
+  setInterval(async () => {
     const poses = await detector.estimatePoses(video);
     if (poses.length > 0) {
       const keypoints = poses[0].keypoints;
 
       keypoints.forEach((kp, i) => {
         if (kp.score > 0.5) {
-          // Normalize: map video coords → [-2, 2]
           let x = (kp.x / video.videoWidth) * 4 - 2;
           let y = -(kp.y / video.videoHeight) * 4 + 2;
 
-          // Mirror effect
-          x = -x;
+          x = -x;      // Mirror
+          x -= 1.5;    // Shift left
 
-          // Shift to stage position (e.g., left side of screen)
-          x -= 1.5;
-
-          joints[i].position.set(x, y, 0);
-        }
-      });
-
-      connections.forEach(([a, b], i) => {
-        const kpA = keypoints[a];
-        const kpB = keypoints[b];
-        if (kpA.score > 0.5 && kpB.score > 0.5) {
-          const start = joints[a].position;
-          const end = joints[b].position;
-          updateBone(bones[i], start, end);
+          // Smooth with lerp (0.3 factor)
+          smoothed[i].lerp(new THREE.Vector3(x, y, 0), 0.3);
         }
       });
     }
+  }, 1000 / 30); // 30fps
+
+  // 🎮 Render loop (decoupled from detection)
+  function renderLoop() {
+    requestAnimationFrame(renderLoop);
+
+    // Update joints & bones from smoothed positions
+    joints.forEach((joint, i) => joint.position.copy(smoothed[i]));
+    connections.forEach(([a, b], i) => updateBone(bones[i], smoothed[a], smoothed[b]));
 
     renderer.render(scene, camera);
   }
 
-  animate();
+  renderLoop();
 }
 
 main();
