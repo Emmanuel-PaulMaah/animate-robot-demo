@@ -1,68 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>3D Robot with Pose Tracking</title>
-  <style> body { margin: 0; overflow: hidden; } </style>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    video { display: none; }
+  </style>
+
+  <!-- Three.js (stable pre-r150) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+
+  <!-- TensorFlow.js core + converter + backend -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+
+  <!-- Pose detection -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 </head>
 <body>
-<video id="video" autoplay playsinline style="display:none"></video>
-<script>
-async function main() {
-  // Init webcam
-  const video = document.getElementById('video');
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-  video.srcObject = stream;
-  await video.play();
+  <video id="video" autoplay playsinline></video>
 
-  // Init Three.js scene
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-  camera.position.z = 5;
-
-  // Create stick-figure joints
-  const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-  const joints = [];
-  for (let i = 0; i < 17; i++) {
-    const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.05), material);
-    scene.add(sphere);
-    joints.push(sphere);
-  }
-
-  // Load MoveNet
-  const detector = await poseDetection.createDetector(
-    poseDetection.SupportedModels.MoveNet,
-    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
-  );
-
-  // Animation loop
-  async function animate() {
-    requestAnimationFrame(animate);
-
-    const poses = await detector.estimatePoses(video);
-    if (poses.length > 0) {
-      poses[0].keypoints.forEach((kp, i) => {
-        if (kp.score > 0.5) {
-          const x = (kp.x / video.videoWidth) * 4 - 2;
-          const y = -(kp.y / video.videoHeight) * 4 + 2;
-          joints[i].position.set(x, y, 0);
-        }
-      });
-    }
-
-    renderer.render(scene, camera);
-  }
-  animate();
-}
-
-main();
-</script>
+  <!-- Main logic -->
+  <script src="demo.js"></script>
 </body>
 </html>
