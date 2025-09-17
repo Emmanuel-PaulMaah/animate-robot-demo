@@ -6,7 +6,17 @@
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    video { display: none; }
+
+    /* Webcam preview box */
+    #video {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 200px;
+      border: 2px solid white;
+      border-radius: 8px;
+      z-index: 10;
+    }
   </style>
 
   <!-- Three.js (stable pre-r150) -->
@@ -21,9 +31,10 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
 </head>
 <body>
-  <video id="video" autoplay playsinline></video>
+  <!-- Webcam preview box -->
+  <video id="video" autoplay playsinline muted></video>
 
-  <!-- Main logic -->
+  <!-- Main script -->
   <script src="demo.js"></script>
 </body>
 </html>
