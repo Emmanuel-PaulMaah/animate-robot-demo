@@ -21,12 +21,16 @@ async function main() {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
-  camera.position.z = 5;
+  camera.position.set(0, 0, 5);
 
   // Add light
   const light = new THREE.PointLight(0xffffff, 1);
   light.position.set(5, 5, 5);
   scene.add(light);
+
+  // Floor grid
+  const grid = new THREE.GridHelper(10, 20);
+  scene.add(grid);
 
   // 🟢 Create joints (spheres)
   const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
@@ -37,7 +41,7 @@ async function main() {
     joints.push(sphere);
   }
 
-  // 🟦 Define skeleton connections (bones)
+  // 🟦 Define skeleton connections
   const connections = [
     [5, 7], [7, 9],     // left arm
     [6, 8], [8, 10],    // right arm
@@ -45,10 +49,10 @@ async function main() {
     [11, 13], [13, 15], // left leg
     [12, 14], [14, 16], // right leg
     [11, 12],           // hips
-    [5, 11], [6, 12]    // torso sides
+    [5, 11], [6, 12]    // torso
   ];
 
-  // 🟨 Create bones (cylinders)
+  // 🟨 Create bones
   const boneMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
   const bones = connections.map(() => {
     const geometry = new THREE.CylinderGeometry(0.02, 0.02, 1, 8);
@@ -63,7 +67,7 @@ async function main() {
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
   );
 
-  // 🎮 Update bone position between two joints
+  // 🎮 Helper to update bones
   function updateBone(bone, start, end) {
     const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
     bone.position.copy(mid);
@@ -90,8 +94,16 @@ async function main() {
 
       keypoints.forEach((kp, i) => {
         if (kp.score > 0.5) {
-          const x = (kp.x / video.videoWidth) * 4 - 2;
-          const y = -(kp.y / video.videoHeight) * 4 + 2;
+          // Normalize: map video coords → [-2, 2]
+          let x = (kp.x / video.videoWidth) * 4 - 2;
+          let y = -(kp.y / video.videoHeight) * 4 + 2;
+
+          // Mirror effect
+          x = -x;
+
+          // Shift to stage position (e.g., left side of screen)
+          x -= 1.5;
+
           joints[i].position.set(x, y, 0);
         }
       });
