@@ -29,7 +29,7 @@ async function main() {
   grid.position.y = -2;
   scene.add(grid);
 
-  // 🟢 Create joints (spheres)
+  // 🟢 Joints (spheres)
   const jointMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
   const joints = [];
   for (let i = 0; i < 17; i++) {
@@ -38,18 +38,18 @@ async function main() {
     joints.push(sphere);
   }
 
-  // 🟦 Define skeleton connections
+  // 🟦 Connections
   const connections = [
-    [5, 7], [7, 9],     // left arm
-    [6, 8], [8, 10],    // right arm
-    [5, 6],             // shoulders
-    [11, 13], [13, 15], // left leg
-    [12, 14], [14, 16], // right leg
-    [11, 12],           // hips
-    [5, 11], [6, 12]    // torso
+    [5, 7], [7, 9],
+    [6, 8], [8, 10],
+    [5, 6],
+    [11, 13], [13, 15],
+    [12, 14], [14, 16],
+    [11, 12],
+    [5, 11], [6, 12]
   ];
 
-  // 🟨 Create bones (cylinders)
+  // 🟨 Bones
   const boneMaterial = new THREE.MeshLambertMaterial({ color: 0xffff00 });
   const bones = connections.map(() => {
     const geometry = new THREE.CylinderGeometry(0.04, 0.04, 1, 8);
@@ -58,7 +58,7 @@ async function main() {
     return bone;
   });
 
-  // 🤖 Load MoveNet detector
+  // 🤖 Load detector
   const detector = await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
@@ -67,7 +67,7 @@ async function main() {
   // Store smoothed joint positions
   const smoothed = Array(17).fill().map(() => new THREE.Vector3());
 
-  // 🎮 Update bone helper
+  // 🎮 Update bone
   function updateBone(bone, start, end) {
     const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
     bone.position.copy(mid);
@@ -81,32 +81,27 @@ async function main() {
     bone.rotateX(Math.PI / 2);
   }
 
-  // 📡 Run pose detection at ~30fps
+  // 📡 Run pose detection ~30fps
   setInterval(async () => {
     const poses = await detector.estimatePoses(video);
     if (poses.length > 0) {
       const keypoints = poses[0].keypoints;
-
       keypoints.forEach((kp, i) => {
         if (kp.score > 0.5) {
           let x = (kp.x / video.videoWidth) * 4 - 2;
           let y = -(kp.y / video.videoHeight) * 4 + 2;
-
-          x = -x;      // Mirror
-          x -= 1.5;    // Shift left
-
-          // Smooth with lerp (0.3 factor)
+          x = -x;   // Mirror
+          x -= 1.5; // Shift left
           smoothed[i].lerp(new THREE.Vector3(x, y, 0), 0.3);
         }
       });
     }
-  }, 1000 / 30); // 30fps
+  }, 1000 / 30);
 
-  // 🎮 Render loop (decoupled from detection)
+  // 🎮 Render loop
   function renderLoop() {
     requestAnimationFrame(renderLoop);
 
-    // Update joints & bones from smoothed positions
     joints.forEach((joint, i) => joint.position.copy(smoothed[i]));
     connections.forEach(([a, b], i) => updateBone(bones[i], smoothed[a], smoothed[b]));
 
